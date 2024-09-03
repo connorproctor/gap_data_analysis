@@ -108,30 +108,22 @@
     var markerClusterGroup = L.markerClusterGroup();
 
     setTimeout(() => {
-      const marinasReq = fetchJSON("/marinas.geojson")
+      const marinasReq = fetchJSON("/combined.geojson")
       marinasReq.then((data) => {
         L.geoJSON(data, {
-          pointToLayer: function (feature, latlng) {
-            if (feature.geometry.type === "Point") {
-              return L.marker(latlng);
-            }
-            return null;
-          },
           onEachFeature: function (feature, layer) {
-            var marker;
-            if (feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon") {
-              var centroid = layer.getBounds().getCenter();
-              marker = L.marker(centroid);
-            } else if (feature.geometry.type === "Point") {
-              marker = L.marker([feature.geometry.coordinates[1], feature.geometry.coordinates[0]]);
-            }
-
-            if (marker) {
-              if (feature.properties && feature.properties.name) {
-                marker.bindPopup(feature.properties.name);
+            // Create a popup content from the feature's properties
+            var popupContent = '';
+            if (feature.properties) {
+              // Iterate over the properties to create the content
+              for (var key in feature.properties) {
+                if (feature.properties.hasOwnProperty(key)) {
+                  popupContent += '<strong>' + key + ':</strong> ' + feature.properties[key] + '<br>';
+                }
               }
-              markerClusterGroup.addLayer(marker);
             }
+            // Bind the popup to the layer (point)
+            layer.bindPopup(popupContent);
           }
         }).addTo(markerClusterGroup);
       })
