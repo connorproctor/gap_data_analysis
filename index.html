@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
   <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous" />
@@ -82,10 +84,11 @@
   </style>
 </head>
 
-<body>
-  <div class="max-width-wrapper">
-    <div id="map"></div>
-  </div>
+<body class="lg:px-2">
+  <h1 class="text-center text-3xl font-bold py-4">
+    GAP Team 25: Marina Data Analysis
+  </h1>
+  <div id="map"></div>
 
   <script>
     function fetchJSON(url) {
@@ -94,7 +97,7 @@
       });
     }
 
-    var map = L.map("map").setView([37.300, -71.894], 4);
+    var map = L.map("map").setView([37.300, -81.894], 5);
 
     const base = L.tileLayer(
       "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
@@ -117,9 +120,9 @@
             if (feature.properties) {
               // Iterate over the properties to create the content
               for (var key in feature.properties) {
-                if (feature.properties.hasOwnProperty(key)) {
-                  popupContent += '<strong>' + key + ':</strong> ' + feature.properties[key] + '<br>';
-                }
+                // if (feature.properties.hasOwnProperty(key)) {
+                popupContent += '<strong>' + key + ':</strong> ' + feature.properties[key] + '<br>';
+                // }
               }
             }
             // Bind the popup to the layer (point)
