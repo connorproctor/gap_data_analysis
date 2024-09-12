@@ -1,0 +1,273 @@
+<html>
+
+<head>
+    <title>GAP Team 25 Marina Map</title>
+    <meta name="robots" content="noindex">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        * {
+            margin: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        img,
+        picture,
+        video,
+        canvas,
+        svg {
+            display: block;
+            max-width: 100%;
+        }
+
+        input,
+        button,
+        textarea,
+        select {
+            font: inherit;
+        }
+
+        p,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            overflow-wrap: break-word;
+        }
+
+        #root,
+        #__next {
+            isolation: isolate;
+        }
+
+        #map {
+            height: 75%;
+        }
+
+        .max-width-wrapper {
+            margin: 0 auto;
+            max-width: 900px;
+            padding: 0 16px;
+        }
+
+        .max-width-wrapper a {
+            color: #4FAEE6 !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="flex justify-between content-center text-white mb-4" style="background-color: #4FAEE6;">
+        <h1 class="text-2xl font-bold p-2">
+            <a href="/">
+                GAP Team 25: Marina Data Analysis
+            </a>
+        </h1>
+        <div class="flex content-center justify-center text-center py-2 px-4">
+            <a href="/about.html">About</a>
+        </div>
+    </div>
+
+    <div class="max-width-wrapper">
+        <h2 class="text-xl font-bold">About</h2>
+        <p class="mb-2">
+            Marinas could be an important first customer segment given that they are
+            protected bodies of water on waterfront land that already have permits and the know-how
+            to navigate regulations pertaining to on-the-water construction.
+            Premium marinas are more likely to be able to support capex for high-cost floating amenities. In
+            addition, surrounding land value and land scarcity could have a big impact on a maria's
+            willingness to purchase a floating solution, due to the cost to acquire land for an amenity
+            potentially costing more than building a floating equivalent.
+        </p>
+        <p class="mt-3 mb-2">
+            This tool uses geospatial data analysis to help identify marinas in "premium" areas with high land
+            costs.
+            There are no readily available datasets of land values costs and "premium" is a subjective measure, so it
+            uses a dataset of typcal housing costs by zip code as a proxy for these qualities.
+        </p>
+        <p class="mb-3">
+            It combines data from OpenStreetMap, Google Maps, and Zillow to provide a map of marinas that can be
+            filtered by typical housing costs in their zip code.
+        </p>
+
+
+        <h3 class="text-xl font-bold">Data Sources</h3>
+        <ul class="list-disc ml-8">
+            <li><a href="https://www.openstreetmap.org">OpenStreetMap</a> data downloaded via <a
+                    href="https://overpass-turbo.eu/">Overpass Turbo</a> for marina locations and information.</li>
+            <li><a href="https://developers.google.com/maps/documentation/geocoding/requests-reverse-geocoding">Google
+                    Maps Reverse Geocoding API</a> to determine zip codes of marinas from their coordinates.</li>
+            <li><a href="https://www.zillow.com/research/data/">Zillow Home Value Data - ZHVI All Homes by Zip Code</a>
+                for typical housing costs for each zip code.</li>
+        </ul>
+
+        <h3 class="text-xl font-bold mt-4">Code</h3>
+
+        <div class="bg-white p-8 rounded-lg shadow-lg w-full mb-3">
+            <h4 class="text-xl font-bold mb-1">Overpass Turbo</h4>
+            <p class="mb-3">For downloading marina data from OpenStreetMaps via Overpass Turbo.</p>
+            <pre class="bg-gray-900 text-white p-4 rounded-lg overflow-auto">
+              <code class="whitespace-pre-wrap">
+                [out:json][timeout:25];
+                (
+                node["leisure"="marina"]({{bbox}});
+                way["leisure"="marina"]({{bbox}});
+                relation["leisure"="marina"]({{bbox}});
+                );
+                out center;
+              </code>
+            </pre>
+        </div>
+
+        <div class="bg-white p-8 rounded-lg shadow-lg w-full">
+            <h4 class="text-xl font-bold mb-2">Ruby code to combine marinas and housing data</h4>
+            <p class="mb-3">This code expects: `marinas.geojson` file of marinas downloaded from Overpass Turbo,
+                `housing_prices.csv` downloaded from Zillow Home Value Data, and a Google Maps API key for geocoding.
+            </p>
+            <pre class="bg-gray-900 text-white p-4 rounded-lg overflow-auto">
+              <code class="whitespace-pre-wrap">
+require "json"
+require "csv"
+require "net/http"
+require "uri"
+
+GOOGLE_API_KEY = ENV["GOOGLE_API_KEY"]
+HOUSING_PRICES = CSV.read("housing_prices.csv", headers: true)
+
+def main
+  # Step 1: Read the GeoJSON file
+  file_path = "marinas.geojson"
+  geojson_content = File.read(file_path)
+  geojson = JSON.parse(geojson_content)
+
+  # Step 2: Process the features
+  new_features = geojson["features"].map.with_index do |feature, index|
+    print "\n#{index}" if index % 20 == 0
+    print "."
+    geometry = feature["geometry"]
+
+    # Process based on geometry type
+    case geometry["type"]
+    when "Point"
+      # Keep the point as is
+      new_geometry = geometry
+    when "Polygon"
+      # Replace with the first point of the first ring
+      first_point = geometry["coordinates"][0][0]
+      new_geometry = {
+        "type" => "Point",
+        "coordinates" => first_point
+      }
+    when "MultiPolygon"
+      # Replace with the first point of the first polygon's first ring
+      first_point = geometry["coordinates"][0][0][0]
+      new_geometry = {
+        "type" => "Point",
+        "coordinates" => first_point
+      }
+    else
+      raise "Unsupported geometry type: #{geometry["type"]}"
+    end
+
+    zip_code = get_zip_code(new_geometry["coordinates"][1], new_geometry["coordinates"][0])
+    price = price_for_zip_code(zip_code) if zip_code
+
+    # Return a new feature with the modified geometry
+    {
+      "type" => "Feature",
+      "geometry" => new_geometry,
+      "properties" => feature["properties"].merge("zip_code" => zip_code, "Average Housing Cost" => price),
+      "id" => feature["id"]
+    }
+  end.compact # Remove nil values from skipped geometries
+
+  # Step 3: Create a new GeoJSON FeatureCollection
+  new_geojson = {
+    "type" => "FeatureCollection",
+    "features" => new_features
+  }
+
+  # Step 4: Write the new GeoJSON to a file
+  output_file_path = "combined.geojson"
+  File.write(output_file_path, JSON.pretty_generate(new_geojson))
+
+  puts "New GeoJSON file with only points created at #{output_file_path}"
+end
+
+def get_zip_code(lat, lon)
+  url = URI.parse("https://maps.googleapis.com/maps/api/geocode/json?latlng=#{lat},#{lon}&key=#{GOOGLE_API_KEY}")
+
+  # Create an HTTP request
+  http = Net::HTTP.new(url.host, url.port)
+  http.use_ssl = true
+  request = Net::HTTP::Get.new(url.request_uri)
+
+  # Make the HTTP request
+  response = http.request(request)
+
+  if response.is_a?(Net::HTTPSuccess)
+    data = JSON.parse(response.body)
+
+    if data["results"] && !data["results"].empty?
+      address_components = data["results"].map { |r| r["address_components"] }.flatten
+      # Find the component that contains the postal code
+      postal_code_component = address_components.find do |component|
+        component["types"].include?("postal_code")
+      end
+
+      if postal_code_component
+        postal_code_component["long_name"]
+      else
+        puts "ZIP Code not found for the given coordinates (#{lat}, #{lon})"
+        nil
+      end
+    else
+      puts "No results found for the given coordinates (#{lat}, #{lon})"
+      nil
+    end
+  else
+    puts "Failed to retrieve data from Google Maps API (#{response.code})"
+    nil
+  end
+end
+
+def price_for_zip_code(zip_code)
+  price_row = HOUSING_PRICES.find { |row| row[2] == zip_code }
+  if price_row
+    price = price_row[-1]
+    sprintf("%.2f", price.to_f).gsub(/(\d)(?=(\d{3})+\.)/, '\1,')
+  else
+    puts "no price found for zip code #{zip_code}"
+    nil
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  main
+end
+
+              </code>
+            </pre>
+        </div>
+
+    </div>
+</body>
+
+</html>
