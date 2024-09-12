@@ -88,6 +88,27 @@
   <h1 class="text-center text-3xl font-bold py-4">
     GAP Team 25: Marina Data Analysis
   </h1>
+
+  <div class="ml-4 max-w-56">
+    <label for="housingCostFilter" class="block text-sm font-medium text-gray-700">Minimum Average Housing Cost</label>
+    <select id="housingCostFilter" name="housingCostFilter"
+      class="mt-2 mb-4 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6">
+      <option value="0">No min</option>
+      <option value="100000">$100,000</option>
+      <option value="200000">$200,000</option>
+      <option value="300000">$300,000</option>
+      <option value="400000">$400,000</option>
+      <option value="500000">$500,000</option>
+      <option value="600000">$600,000</option>
+      <option value="700000">$700,000</option>
+      <option value="800000">$800,000</option>
+      <option value="900000">$900,000</option>
+      <option value="1000000">$1,000,000</option>
+      <option value="1500000">$1,500,000</option>
+      <option value="2000000">$2,000,000</option>
+    </select>
+  </div>
+
   <div id="map"></div>
 
   <script>
@@ -109,30 +130,50 @@
     ).addTo(map);
 
     var markerClusterGroup = L.markerClusterGroup();
+    var marinasData;
+
+    function updateMap(minHousingCost) {
+      markerClusterGroup.clearLayers(); // Clear existing markers
+
+      L.geoJSON(marinasData, {
+        filter: function (feature) {
+          if (!feature.properties || !feature.properties["Average Housing Cost"]) {
+            return false;
+          }
+          const housingCost = parseFloat(feature.properties["Average Housing Cost"].replace(/,/g, ''));
+          return housingCost >= minHousingCost;
+        },
+        onEachFeature: function (feature, layer) {
+          var popupContent = '';
+          if (feature.properties) {
+            for (var key in feature.properties) {
+              if (["@geometry", "@id", "leisure"].includes(key)) {
+                continue;
+              }
+
+              popupContent += '<strong>' + key + ':</strong> ' + feature.properties[key] + '<br>';
+            }
+          }
+          layer.bindPopup(popupContent);
+        }
+      }).addTo(markerClusterGroup);
+
+      markerClusterGroup.addTo(map);
+    }
 
     setTimeout(() => {
       const marinasReq = fetchJSON("/combined.geojson")
       marinasReq.then((data) => {
-        L.geoJSON(data, {
-          onEachFeature: function (feature, layer) {
-            // Create a popup content from the feature's properties
-            var popupContent = '';
-            if (feature.properties) {
-              // Iterate over the properties to create the content
-              for (var key in feature.properties) {
-                // if (feature.properties.hasOwnProperty(key)) {
-                popupContent += '<strong>' + key + ':</strong> ' + feature.properties[key] + '<br>';
-                // }
-              }
-            }
-            // Bind the popup to the layer (point)
-            layer.bindPopup(popupContent);
-          }
-        }).addTo(markerClusterGroup);
-      })
-      markerClusterGroup.addTo(map);
-    }, 100);
+        marinasData = data;
+        updateMap(0);
+      });
+    }, 200);
 
+    document.getElementById('housingCostFilter').addEventListener('change', function () {
+      var minHousingCost = document.getElementById('housingCostFilter').value;
+      console.log('minHousingCost', minHousingCost);
+      updateMap(minHousingCost);
+    });
   </script>
 </body>
 
